@@ -156,7 +156,6 @@ def recursive_parse(s):
             s.inc()
             s.eat_spaces()
             o = recursive_parse(s)
-            #assert isinstance(m,dict)
             s.inc()
             return ("with-meta",(o,(m,None)))
         else:
@@ -247,7 +246,6 @@ def PRINT(c):
     else:
         print(c,end="")
   
-# REPL
 repl_env = {'+': lambda c: car(c)+cadr(c),
             '-': lambda c: car(c)-cadr(c),
             '*': lambda c: car(c)*cadr(c),
@@ -260,16 +258,4 @@ while True:
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
-        break      
-        
-# repl loop
-#while True:
-#    try:
-#        line = READ()
-#        #if line == None: break
-#        if line == "": continue
-#        PRINT(EVAL(line))
-#        print("")
-#    #except reader.Blank: continue
-#    except Exception as e:
-#        print("".join(traceback.format_exception(*sys.exc_info())))        
+        break             

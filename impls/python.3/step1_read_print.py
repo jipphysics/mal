@@ -222,8 +222,7 @@ def PRINT(c):
         print("}",end="")              
     else:
         print(c,end="")
-  
-# REPL
+
 while True:
     try:
         PRINT(EVAL(READ()))
@@ -231,16 +230,4 @@ while True:
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
-        break      
-        
-# repl loop
-#while True:
-#    try:
-#        line = READ()
-#        #if line == None: break
-#        if line == "": continue
-#        PRINT(EVAL(line))
-#        print("")
-#    #except reader.Blank: continue
-#    except Exception as e:
-#        print("".join(traceback.format_exception(*sys.exc_info())))        
+        break        
