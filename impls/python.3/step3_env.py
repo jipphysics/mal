@@ -1,11 +1,11 @@
 import sys, traceback
 
 def car(c):
-    if type(c) == tuple or type(c) == list:
+    if type(c) == tuple:# or type(c) == list:
         return c[0]
     return None
 def cdr(c):
-    if type(c) == tuple or type(c) == list:
+    if type(c) == tuple:# or type(c) == list:
         return c[1]
     return None
 def caar(c):
@@ -224,11 +224,18 @@ def EVAL(c,env):
 def let(c,e):
   ee=Env(e)
   l=car(c)
-  while l:
-      x = car(l)
-      l = cdr(l)
-      ee[x] = EVAL(car(l),ee)
-      l = cdr(l)      
+  if type(l) == tuple:
+      while l:
+          x = car(l)
+          l = cdr(l)
+          ee[x] = EVAL(car(l),ee)
+          l = cdr(l)
+  elif type(l) == list:
+      while l:
+          x = l[0]
+          l = l[1:]
+          ee[x] = EVAL(l[0],ee)
+          l = l[1:]
   return EVAL(cadr(c),ee)
 
 repl_env = Env()
