@@ -181,80 +181,99 @@ def parse(s):
    
 def READ():
     return car(parse(input("user> ")))
-        
+
+
+class Env(dict):
+    def __init__(self,outer=None):
+        self.outer=outer
+    def __getitem__(self,k):
+        try:
+            return dict.__getitem__(self,k)
+        except:
+            try:
+                return self.outer[k]
+            except:
+                raise Exception(".*"+str(k)+" not found.*")
+    def __setitem__(self,k,v):
+        if type(k) is str:
+            dict.__setitem__(self,k,v)
+            return v
+        raise Exception(".key *"+str(k)+" not found.*")                    
+    
+def eval_list(c,env):
+    if type(c) == tuple:
+        return (EVAL(car(c),env),eval_list(cdr(c),env))
+    return EVAL(cdr(c),env)
+      
 def EVAL(c,env):
     if type(c) == tuple:
-        k = None
-        while c:
-            k = (EVAL(car(c),env),k)
-            c = cdr(c)
-        s = None
-        while k:
-            c = (car(k),c)
-            k = cdr(k)
-        if c is None:
-            return None
+        f = EVAL(car(c),env)
+        if callable(f):
+            return f(cdr(c),env)
         else:
-            try:
-                return car(c)(cdr(c))
-            except:
-                return c
+            return (f,eval_list(cdr(c),env))
+    elif type(c) == str:
+        return env[c]
     elif type(c) == list:
-         return [EVAL(x,env) for x in c]
+        return [EVAL(x,env) for x in c]
     elif type(c) == dict:
-        return {k : EVAL(c[k],env) for k in c.keys()}
+        return {k : EVAL(c[k],env) for k in c.keys()}        
     else:
-        try:
-            return env[c]
-        except:
-            return c
+        return c
+
+def let(c,e):
+  ee=Env(e)
+  l=car(c)
+  while l:
+      x = car(l)
+      l = cdr(l)
+      ee[x] = EVAL(car(l),ee)
+      l = cdr(l)      
+  return EVAL(cadr(c),ee)
+
+repl_env = Env()
+repl_env['+'] = lambda c,e: EVAL(car(c),e)+EVAL(cadr(c),e)
+repl_env['-'] = lambda c,e: EVAL(car(c),e)-EVAL(cadr(c),e)
+repl_env['*'] = lambda c,e: EVAL(car(c),e)*EVAL(cadr(c),e)
+repl_env['/'] = lambda c,e: int(EVAL(car(c),e)/EVAL(cadr(c),e))
+repl_env['def!'] = lambda c,e: e.__setitem__(car(c),EVAL(cadr(c),e))
+repl_env['let*'] = let
             
-def PRINT(c):
+def to_str(c):
     if c is None:
-        print("()",end="")
+        return "()"
     elif type(c) == tuple:
-        print("(",end="")
+        s="("
         i=c
         while i:
-            PRINT(car(i))
+            s+=to_str(car(i))
             i=cdr(i)
             if type(i) != tuple and i:
-                print(" . ",end="")
-                PRINT(i)
+                s+=" . "+to_str(i)
                 break
             if i:
-                print(" ",end="")
-        print(")",end="")
+                s+=" "
+        return s+")"
     elif type(c) == list:
         sep=""
-        print("[",end="")
+        s="["
         for i in c:
-            print(sep,end="")
+            s+=sep
             sep=" "
-            PRINT(i)            
-        print("]",end="")      
+            s+=to_str(i)            
+        return s+"]"
     elif type(c) == dict:
         sep=""
-        print("{",end="")
+        s="{"
         for k,v in c.items():
-            print(sep,end="")
-            sep=" "
-            PRINT(k)
-            print(" ",end="")
-            PRINT(v)
-        print("}",end="")              
+            s+=sep+to_str(k)+" "+to_str(v)
+        return s+"}"
     else:
-        print(c,end="")
-  
-repl_env = {'+': lambda c: car(c)+cadr(c),
-            '-': lambda c: car(c)-cadr(c),
-            '*': lambda c: car(c)*cadr(c),
-            '/': lambda c: int(car(c)/cadr(c))}
+        return str(c)
             
 while True:
     try:
-        PRINT(EVAL(READ(),repl_env))
-        print("")
+        print(to_str(EVAL(READ(),repl_env)))
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
