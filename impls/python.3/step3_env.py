@@ -284,4 +284,4 @@ while True:
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
-        break             
+        break
