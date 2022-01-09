@@ -65,7 +65,8 @@ class String:
 
 def to_str(c):
     if c is None:
-        return "()"
+        #return "()"
+        return "nil"
     elif type(c) == tuple:
         s="("
         i=c
@@ -228,7 +229,7 @@ def DO(c,e):
 
 def IF(c,e):
     a = EVAL(car(c),e)
-    if a is None or a is False:
+    if a is False: #or a is None:
         return EVAL(caddr(c),e) 
     else:
         return EVAL(cadr(c),e)
@@ -276,15 +277,25 @@ def COUNT(c,e):
             a=cdr(a)
     return n
 
+def PRN(c,e):
+    print(to_str(EVAL(car(c),e)))
+    return None
+    
+
 class Env(dict):
     def __init__(self,outer=None):
         self.outer=outer      
     def __getitem__(self,k):
+        #print("@Env.__getitem__ k="+to_str(k)+" self="+to_str(self)+" outer="+to_str(self.outer))
         if k in dict(self):
+            #print("@Env.__getitem__ #1")
             return dict(self).__getitem__(k)
-        if self.outer:
+        if self.outer is None:
+            #print("@Env.__getitem__ #2")        
+            raise Exception("@Env.__getitem__ key << "+str(k)+" >> not found") 
+        else:
+            #print("@Env.__getitem__ #3")        
             return self.outer[k]
-        raise Exception("@Env.__getitem__ key << "+str(k)+" >> not found") 
     def __setitem__(self,k,v):
         if type(k) is str:
             dict.__setitem__(self,k,v)
@@ -310,7 +321,7 @@ class Closure:
         self.body = body
         self.env = env                 
     def __call__(self,c,e):
-        print("@Closure.__call__ e=",e)    
+        #print("@Closure.__call__ e=",e)    
         #ee = Env(e)
         ee = Env(self.env)        
         if type(c) == tuple:
@@ -319,7 +330,7 @@ class Closure:
                 ee[car(a)] = EVAL(car(c),e)
                 c = cdr(c)
                 a = cdr(a)
-        print("@Closure.__call__ ee=",ee)
+        #print("@Closure.__call__ ee=",ee)
         return EVAL(self.body,ee)
                             
 def eval_list(c,env):
@@ -328,7 +339,7 @@ def eval_list(c,env):
     return EVAL(cdr(c),env)
       
 def EVAL(c,env):
-    print("@EVAL c="+to_str(c))
+    #print("@EVAL c="+to_str(c)+" env="+to_str(env))
     if type(c) == tuple:
         f = EVAL(car(c),env)
         if callable(f):
@@ -347,7 +358,7 @@ def EVAL(c,env):
 repl_env = Env()
 repl_env['true'] = True
 repl_env['false'] = False
-repl_env['nil'] = None
+repl_env['nil'] = False
 repl_env['quote'] = lambda c,e: EVAL(car(c),e)+EVAL(cadr(c),e)
 repl_env['+'] = lambda c,e: EVAL(car(c),e)+EVAL(cadr(c),e)
 repl_env['-'] = lambda c,e: EVAL(car(c),e)-EVAL(cadr(c),e)
@@ -366,7 +377,8 @@ repl_env['<'] = lambda c,e: EVAL(car(c),e)<EVAL(cadr(c),e)
 repl_env['>'] = lambda c,e: EVAL(car(c),e)>EVAL(cadr(c),e)
 repl_env['<='] = lambda c,e: EVAL(car(c),e)<=EVAL(cadr(c),e)
 repl_env['>='] = lambda c,e: EVAL(car(c),e)>=EVAL(cadr(c),e)
-repl_env['='] = lambda c,e: EVAL(car(c),e)==EVAL(cadr(c),e)       
+repl_env['='] = lambda c,e: EVAL(car(c),e)==EVAL(cadr(c),e)   
+repl_env['prn'] = PRN  
                        
 while True:
     try:
