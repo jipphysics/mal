@@ -10,7 +10,7 @@ class List(list):
     def __init__(self,l=[]):
         list.__init__(self,l)
     def __str__(self):
-        return '('+' '.join([str(x) for x in list(self)])+')'       
+        return '('+' '.join([str(x) for x in list(self)])+')'
   
 class Vector(list):
     def __init__(self,l=[]):
@@ -238,13 +238,14 @@ class Env(dict):
         else:
             raise Exception("@Env.__setitem__ key << "+str(k)+" >> not valid")
     def __str__(self):
+        sep=""
         s='Env{'
         for k,v in dict.items(self):
             if callable(v):
                 s+=sep+str(k)+':...'
             else:
                 s+=sep+str(k)+':'+str(v)
-            sep=','
+            sep=' '
         s+=';'+str(self.outer)+'}'
         return s
     def __repr__(self):
@@ -252,14 +253,18 @@ class Env(dict):
 
 class Closure:
     def __init__(self,args,body,env):
+        print("@Closure.__init__ args="+str(args)+" body="+str(body)+" env="+str(env))
         self.args = args
         self.body = body
         self.env = env                 
     def __call__(self,c,e):
+        print("@Closure.__call__ c="+str(c)+" e="+str(e))
         ee = Env(self.env)        
-        if type(c) is List:
-            for x,y in zip(c,self.args):
+        if isinstance(c,list):
+            for x,y in zip(self.args,c):
+                print("@Closure.__call__ x="+str(x)+" y="+str(y))
                 ee[x] = EVAL(y,e)
+        print("@Closure.__call__ ee="+str(ee))
         return EVAL(self.body,ee)
                             
 def eval_list(c,e):
