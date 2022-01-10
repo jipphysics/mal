@@ -11,20 +11,12 @@ class List(list):
         list.__init__(self,l)
     def __str__(self):
         return '('+' '.join([str(x) for x in list(self)])+')'       
-    #def __getitem__(self,i):
-    #    if i<0 or i>=len(self):
-    #        return None
-    #    return list(self)[i]
   
 class Vector(list):
-    def __init__(self):
-        pass
+    def __init__(self,l=[]):
+        list.__init__(self,l)
     def __str__(self):
         return '['+' '.join([str(x) for x in list(self)])+']'
-    #def __getitem__(self,i):
-    #    if i<0 or i>=len(self):
-    #        return None
-    #    return list(self)[i]
         
 class Dict(dict):
     def __init__(self,d={}):
@@ -193,15 +185,20 @@ def DO(c,e):
     return r
 
 def IF(c,e):
-    if EVAL(c[0],e) is False:
-        return EVAL(c[2],e) 
-    else:
+    x=EVAL(c[0],e)
+    if x is False:
+        if len(c)>2:
+            return EVAL(c[2],e)
+        return None
+    elif len(c)>1:
         return EVAL(c[1],e)
+    else:
+        return None #raise Exception("@IF invalid expression") 
 
 def LET(c,e):
   ee=Env(e)
   l=c[0]
-  if type(l) is List or type(l) is Vector:
+  if isinstance(c,list):
       while l:
           x = l[0]
           l = l[1:]
@@ -211,15 +208,15 @@ def LET(c,e):
 
 def EMPTYQ(c,e):
     x = EVAL(c[0],e)
-    if type(x) is List:
+    if isinstance(x,list):
         return len(x) == 0
     return False
        
 def COUNT(c,e):
     x=EVAL(c[0],e)
-    if type(x) == List:
+    if isinstance(x,list):
         return len(x)
-    return None
+    return 0
 
 def PRN(c,e):
     print(str(EVAL(c[0],e)))
@@ -242,7 +239,6 @@ class Env(dict):
             raise Exception("@Env.__setitem__ key << "+str(k)+" >> not valid")
     def __str__(self):
         s='Env{'
-        sep=''
         for k,v in dict.items(self):
             if callable(v):
                 s+=sep+str(k)+':...'
@@ -267,20 +263,20 @@ class Closure:
         return EVAL(self.body,ee)
                             
 def eval_list(c,e):
-    if type(c) is List:
+    if isinstance(c,list):
         return List([EVAL(x,e) for x in c])
     return None
       
 def EVAL(c,env):
-    if type(c) == List:
+    if type(c) is List and len(c)>0:
         f = EVAL(c[0],env)
         if callable(f):
             return f(c[1:],env)
         else:
-            return (f,eval_list(cdr(c),env))
+            return (f,eval_list(c[1:],env))
     elif type(c) is Symbol:
         return env[c]
-    elif type(c) == List:
+    elif type(c) is Vector:
         return Vector([EVAL(x,env) for x in c])
     elif type(c) == Dict:
         return Dict({k : EVAL(c[k],env) for k in c.keys()})
@@ -301,8 +297,8 @@ repl_env[Symbol('let*')] = LET
 repl_env[Symbol('do')] = DO
 repl_env[Symbol('if')] = IF
 repl_env[Symbol('fn*')] = lambda c,e: Closure(c[0],c[1],e)
-repl_env[Symbol('list')] = lambda c,e: eval_list(c[1],e)
-repl_env[Symbol('list?')] = lambda c,e: type(EVAL(c[1],e)) is List
+repl_env[Symbol('list')] = lambda c,e: eval_list(c,e)
+repl_env[Symbol('list?')] = lambda c,e: type(EVAL(c[0],e)) is List
 repl_env[Symbol('empty?')] = EMPTYQ
 repl_env[Symbol('count')] = COUNT
 repl_env[Symbol('<')] = lambda c,e: EVAL(c[0],e)<EVAL(c[1],e)
