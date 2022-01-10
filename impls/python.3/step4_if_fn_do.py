@@ -179,14 +179,14 @@ def READ():
   
 def DO(c,e):
     r = None
-    if type(c) is List:
+    if isinstance(c,list):
         for i in c:
             r = EVAL(i,e)
     return r
 
 def IF(c,e):
     x=EVAL(c[0],e)
-    if x is False:
+    if x is False or x is None:
         if len(c)>2:
             return EVAL(c[2],e)
         return None
@@ -253,18 +253,18 @@ class Env(dict):
 
 class Closure:
     def __init__(self,args,body,env):
-        print("@Closure.__init__ args="+str(args)+" body="+str(body)+" env="+str(env))
+        #print("@Closure.__init__ args="+str(args)+" body="+str(body)+" env="+str(env))
         self.args = args
         self.body = body
         self.env = env                 
     def __call__(self,c,e):
-        print("@Closure.__call__ c="+str(c)+" e="+str(e))
+        #print("@Closure.__call__ c="+str(c)+" e="+str(e))
         ee = Env(self.env)        
         if isinstance(c,list):
             for x,y in zip(self.args,c):
-                print("@Closure.__call__ x="+str(x)+" y="+str(y))
+                #print("@Closure.__call__ x="+str(x)+" y="+str(y))
                 ee[x] = EVAL(y,e)
-        print("@Closure.__call__ ee="+str(ee))
+        #print("@Closure.__call__ ee="+str(ee))
         return EVAL(self.body,ee)
                             
 def eval_list(c,e):
@@ -291,7 +291,7 @@ def EVAL(c,env):
 repl_env = Env()
 repl_env[Symbol('true')] = True
 repl_env[Symbol('false')] = False
-repl_env[Symbol('nil')] = False
+repl_env[Symbol('nil')] = None
 repl_env[Symbol('quote')] = lambda c,e: EVAL(c[0],e)+EVAL(c[1],e)
 repl_env[Symbol('+')] = lambda c,e: EVAL(c[0],e)+EVAL(c[1],e)
 repl_env[Symbol('-')] = lambda c,e: EVAL(c[0],e)-EVAL(c[1],e)
