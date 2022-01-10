@@ -1,53 +1,64 @@
 import sys, traceback
 
-def car(c):
-    if type(c) == tuple:# or type(c) == list:
-        return c[0]
-    return None
-def cdr(c):
-    if type(c) == tuple:# or type(c) == list:
-        return c[1]
-    return None
-def caar(c):
-    return car(car(c))
-def cadr(c):
-    return car(cdr(c))
-def cdar(c):
-    return cdr(car(c))
-def cddr(c):
-    return cdr(cdr(c))
-def caaar(c):
-    return car(caar(c))
-def caadr(c):
-    return car(cadr(c))
-def cadar(c):
-    return car(cdar(c))
-def caddr(c):
-    return car(cddr(c))
-def cdaar(c):
-    return cdr(caar(c))
-def cdadr(c):
-    return cdr(cadr(c))
-def cddar(c):
-    return cdr(cdar(c))
-def cdddr(c):
-    return cdr(cddr(c))
-
+class Symbol(str):
+    def __new__(cls,name):
+        if '"' in name:
+            raise Exception("@Symbol.__new__ name << "+str(name)+" >> contains \"")
+        return str.__new__(cls,name)  
+               
+class List(list):
+    def __init__(self,l=[]):
+        list.__init__(self,l)
+    def __str__(self):
+        return '('+' '.join([str(x) for x in list(self)])+')'       
+    #def __getitem__(self,i):
+    #    if i<0 or i>=len(self):
+    #        return None
+    #    return list(self)[i]
+  
+class Vector(list):
+    def __init__(self):
+        pass
+    def __str__(self):
+        return '['+' '.join([str(x) for x in list(self)])+']'
+    #def __getitem__(self,i):
+    #    if i<0 or i>=len(self):
+    #        return None
+    #    return list(self)[i]
+        
+class Dict(dict):
+    def __init__(self,d={}):
+        dict.__init__(self,d)
+    def __str__(self):
+        return 
+    def __getitem__(self,k):
+        if type(k) is Symbol:
+            return dict(self).get(k,None)
+        return None
+    def __setitem__(self,k,v):
+        if type(k) is Symbol:
+            dict(self).__setitem__(k,v)
+        raise Exception("@Dict.__setitem__ key << "+str(k)+" >> is not Symbol")
+    def __str__(self):
+        l=[]
+        for k,v in dict(self).items():
+            l.append(k)
+            l.append(v)                    
+        return '{'+' '.join([str(x) for x in l])+'}'
+        
 def space(s):
     return s == ' ' or s == '\n' or s == '\r' or s == '\t' or s == '\f' or s == '\v' or s == ','
     
-class String:
+class StringPtr:
     def __init__(self,s):
-        if isinstance(s,String):
+        if isinstance(s,StringPtr):
             self.s = s.s
             self.i = s.i
-            self.e = s.e                        
         else:
             self.s = str(s)
             self.i = 0
-            self.e = len(self.s)
     def nend(self):
-        return self.i < self.e
+        return self.i < len(self.s)
     def end(self):
         return not self.nend()
     def inc(self):
@@ -57,42 +68,15 @@ class String:
             return self.s[self.i+offset]
         except:
             return ""
-    def eat_spaces(self):
+    def skip_spaces(self):
         while self.nend() and space(self[0]):
             self.inc()
     def remainder(self):
-        return self.s[self.i:]
-
+        return self.s[self.i:]     
+        
 def to_str(c):
     if c is None:
-        #return "()"
         return "nil"
-    elif type(c) == tuple:
-        s="("
-        i=c
-        while i:
-            s+=to_str(car(i))
-            i=cdr(i)
-            if type(i) != tuple and i:
-                s+=" . "+to_str(i)
-                break
-            if i:
-                s+=" "
-        return s+")"
-    elif type(c) == list:
-        sep=""
-        s="["
-        for i in c:
-            s+=sep
-            sep=" "
-            s+=to_str(i)            
-        return s+"]"
-    elif type(c) == dict:
-        sep=""
-        s="{"
-        for k,v in c.items():
-            s+=sep+to_str(k)+" "+to_str(v)
-        return s+"}"
     elif c is True:
         return 'true'
     elif c is False:
@@ -101,60 +85,47 @@ def to_str(c):
         return str(c)
 
 def recursive_parse(s):
-    s.eat_spaces()
+    s.skip_spaces()
     if s.end():
         return None
     if s[0]=='(':
         s.inc()
-        s.eat_spaces()
-        k=None
-        c=None
+        s.skip_spaces()
+        c=List()
         while s[0]!=')' and s.nend():
-            if s[0]=='.' and (space(s[1]) or s[1]==')'):
-                s.inc()
-                s.eat_spaces()
-                if s[0]!=')' and s.nend():
-                    c = recursive_parse(s)
-                s.eat_spaces()
-            else:
-                k=(recursive_parse(s),k)
-                s.eat_spaces()
+            c.append(recursive_parse(s))
+            s.skip_spaces()            
         if s.end():
             raise Exception("Exception: expected ')', got EOF")
-        while k:
-            c=(car(k),c)
-            k=cdr(k)
         s.inc()
         return c
     elif s[0]=='[':
         s.inc()
-        s.eat_spaces()
-        c=[]
+        s.skip_spaces()
+        c=Vector()
         while s[0]!=']' and s.nend():
             c.append(recursive_parse(s))
-            s.eat_spaces()            
+            s.skip_spaces()            
         if s.end():
             raise Exception("Exception: expected ']', got EOF")
         s.inc()
         return c
     elif s[0]=='{':
         s.inc()        
-        s.eat_spaces()
-        t=[]
-        while s[0]!='}' and s.nend():
-            t.append(recursive_parse(s))
-            s.eat_spaces()
-        if s.end():
-            raise Exception("Exception: expected '}', got EOF")
-        s.inc()
-        c = {}
+        s.skip_spaces()
+        t=Dict()
         key = True
-        for i in t:
+        while s[0]!='}' and s.nend():
+            i = recursive_parse(s)
+            s.skip_spaces()
             if key:
                 k = i
             else:
                 c[k] = i
-            key = not key
+            key = not key            
+        if s.end():
+            raise Exception("Exception: expected '}', got EOF")
+        s.inc()
         return c
     else:
         j = s.i
@@ -173,134 +144,102 @@ def recursive_parse(s):
             return s.s[j:s.i] #s.s[j+1:s.i-1]
         elif s[0]=='\'':
             s.inc()
-            return ("quote",(recursive_parse(s),None))
+            return List(["quote",recursive_parse(s)])
         elif s[0]=='`':
             s.inc()
-            return ("quasiquote",(recursive_parse(s),None))            
+            return List(["quasiquote",recursive_parse(s)])
         elif s[0]=='~':
             s.inc()
             if s[0]=='@':
                 s.inc()            
-                return ("splice-unquote",(recursive_parse(s),None))            
-            return ("unquote",(recursive_parse(s),None))
+                return List(["splice-unquote",recursive_parse(s)])            
+            return List(["unquote",recursive_parse(s)])
         elif s[0]=='@':
             s.inc()
-            return ("deref",(recursive_parse(s),None))                    
+            return List(["deref",recursive_parse(s)])                    
         elif s[0]=='^':
             s.inc()
-            s.eat_spaces()
+            s.skip_spaces()
             m = recursive_parse(s)
             s.inc()
-            s.eat_spaces()
+            s.skip_spaces()
             o = recursive_parse(s)
             s.inc()
-            return ("with-meta",(o,(m,None)))
+            return List(["with-meta",o,m])
         else:
             while s.nend() and (not space(s[0])) and s[0]!='(' and s[0]!=')' and s[0]!='[' and s[0]!=']' and s[0]!='{' and s[0]!='}':
                 s.inc()
             try:
-                #return float(s.s[j:s.i])
                 return int(s.s[j:s.i])                
             except:
-                return s.s[j:s.i]
+                return Symbol(s.s[j:s.i])
     return None
 
 def parse(s):
-    s=String(s)
-    k=None
+    s=StringPtr(s)
+    k=List()
     while s.nend():
-        k=(recursive_parse(s),k)
-    r=None
-    while k:
-        r=(car(k),r)
-        k=cdr(k)
-    return r
+        k.append(recursive_parse(s))
+    return k
    
 def READ():
-    return car(parse(input("user> ")))
+    return parse(input("user> "))[0]
   
 def DO(c,e):
     r = None
-    if type(c) == tuple:
-        while c:
-            r = EVAL(car(c),e)
-            c = cdr(c)
+    if type(c) is List:
+        for i in c:
+            r = EVAL(i,e)
     return r
 
 def IF(c,e):
-    a = EVAL(car(c),e)
-    if a is False: #or a is None:
-        return EVAL(caddr(c),e) 
+    if EVAL(c[0],e) is False:
+        return EVAL(c[2],e) 
     else:
-        return EVAL(cadr(c),e)
+        return EVAL(c[1],e)
 
 def LET(c,e):
   ee=Env(e)
-  l=car(c)
-  if type(l) == tuple:
-      while l:
-          x = car(l)
-          l = cdr(l)
-          ee[x] = EVAL(car(l),ee)
-          l = cdr(l)
-  elif type(l) == list:
+  l=c[0]
+  if type(l) is List or type(l) is Vector:
       while l:
           x = l[0]
           l = l[1:]
           ee[x] = EVAL(l[0],ee)
           l = l[1:]
-  return EVAL(cadr(c),ee)
-
-def LIST(c,e):
-    if type(c) == tuple:
-        return (EVAL(car(c),e),LIST(cdr(c),e))
-    return None
-     
-def LISTQ(c,e):
-    a = EVAL(car(c),e)
-    if a is None or type(a) == tuple:
-        return True
-    return False
+  return EVAL(c[1],ee)
 
 def EMPTYQ(c,e):
-    a = EVAL(car(c),e)
-    if a is None:
-        return True        
+    x = EVAL(c[0],e)
+    if type(x) is List:
+        return len(x) == 0
     return False
        
 def COUNT(c,e):
-    n=0
-    a=EVAL(car(c),e)
-    if type(a) == tuple:
-        while a:
-            n+=1
-            a=cdr(a)
-    return n
+    x=EVAL(c[0],e)
+    if type(x) == List:
+        return len(x)
+    return None
 
 def PRN(c,e):
-    print(to_str(EVAL(car(c),e)))
+    print(str(EVAL(c[0],e)))
     return None
     
-
 class Env(dict):
     def __init__(self,outer=None):
         self.outer=outer      
     def __getitem__(self,k):
-        #print("@Env.__getitem__ k="+to_str(k)+" self="+to_str(self)+" outer="+to_str(self.outer))
         if k in dict(self):
-            #print("@Env.__getitem__ #1")
             return dict(self).__getitem__(k)
-        if self.outer is None:
-            #print("@Env.__getitem__ #2")        
+        if self.outer is None:      
             raise Exception("@Env.__getitem__ key << "+str(k)+" >> not found") 
-        else:
-            #print("@Env.__getitem__ #3")        
+        else:   
             return self.outer[k]
     def __setitem__(self,k,v):
-        if type(k) is str:
+        if type(k) is Symbol:
             dict.__setitem__(self,k,v)
-            return v
-        raise Exception("@Env.__setitem__ key << "+str(k)+" >> not valid")
+        else:
+            raise Exception("@Env.__setitem__ key << "+str(k)+" >> not valid")
     def __str__(self):
         s='Env{'
         sep=''
@@ -321,64 +260,57 @@ class Closure:
         self.body = body
         self.env = env                 
     def __call__(self,c,e):
-        #print("@Closure.__call__ e=",e)    
-        #ee = Env(e)
         ee = Env(self.env)        
-        if type(c) == tuple:
-            a = self.args
-            while c and a:
-                ee[car(a)] = EVAL(car(c),e)
-                c = cdr(c)
-                a = cdr(a)
-        #print("@Closure.__call__ ee=",ee)
+        if type(c) is List:
+            for x,y in zip(c,self.args):
+                ee[x] = EVAL(y,e)
         return EVAL(self.body,ee)
                             
-def eval_list(c,env):
-    if type(c) == tuple:
-        return (EVAL(car(c),env),eval_list(cdr(c),env))
-    return EVAL(cdr(c),env)
+def eval_list(c,e):
+    if type(c) is List:
+        return List([EVAL(x,e) for x in c])
+    return None
       
 def EVAL(c,env):
-    #print("@EVAL c="+to_str(c)+" env="+to_str(env))
-    if type(c) == tuple:
-        f = EVAL(car(c),env)
+    if type(c) == List:
+        f = EVAL(c[0],env)
         if callable(f):
-            return f(cdr(c),env)
+            return f(c[1:],env)
         else:
             return (f,eval_list(cdr(c),env))
-    elif type(c) == str:
+    elif type(c) is Symbol:
         return env[c]
-    elif type(c) == list:
-        return [EVAL(x,env) for x in c]
-    elif type(c) == dict:
-        return {k : EVAL(c[k],env) for k in c.keys()}        
+    elif type(c) == List:
+        return Vector([EVAL(x,env) for x in c])
+    elif type(c) == Dict:
+        return Dict({k : EVAL(c[k],env) for k in c.keys()})
     else:
         return c
         
 repl_env = Env()
-repl_env['true'] = True
-repl_env['false'] = False
-repl_env['nil'] = False
-repl_env['quote'] = lambda c,e: EVAL(car(c),e)+EVAL(cadr(c),e)
-repl_env['+'] = lambda c,e: EVAL(car(c),e)+EVAL(cadr(c),e)
-repl_env['-'] = lambda c,e: EVAL(car(c),e)-EVAL(cadr(c),e)
-repl_env['*'] = lambda c,e: EVAL(car(c),e)*EVAL(cadr(c),e)
-repl_env['/'] = lambda c,e: int(EVAL(car(c),e)/EVAL(cadr(c),e))
-repl_env['def!'] = lambda c,e: e.__setitem__(car(c),EVAL(cadr(c),e))
-repl_env['let*'] = LET
-repl_env['do'] = DO
-repl_env['if'] = IF
-repl_env['fn*'] = lambda c,e: Closure(car(c),cadr(c),e)
-repl_env['list'] = LIST
-repl_env['list?'] = LISTQ
-repl_env['empty?'] = EMPTYQ
-repl_env['count'] = COUNT
-repl_env['<'] = lambda c,e: EVAL(car(c),e)<EVAL(cadr(c),e)
-repl_env['>'] = lambda c,e: EVAL(car(c),e)>EVAL(cadr(c),e)
-repl_env['<='] = lambda c,e: EVAL(car(c),e)<=EVAL(cadr(c),e)
-repl_env['>='] = lambda c,e: EVAL(car(c),e)>=EVAL(cadr(c),e)
-repl_env['='] = lambda c,e: EVAL(car(c),e)==EVAL(cadr(c),e)   
-repl_env['prn'] = PRN  
+repl_env[Symbol('true')] = True
+repl_env[Symbol('false')] = False
+repl_env[Symbol('nil')] = False
+repl_env[Symbol('quote')] = lambda c,e: EVAL(c[0],e)+EVAL(c[1],e)
+repl_env[Symbol('+')] = lambda c,e: EVAL(c[0],e)+EVAL(c[1],e)
+repl_env[Symbol('-')] = lambda c,e: EVAL(c[0],e)-EVAL(c[1],e)
+repl_env[Symbol('*')] = lambda c,e: EVAL(c[0],e)*EVAL(c[1],e)
+repl_env[Symbol('/')] = lambda c,e: int(EVAL(c[0],e)/EVAL(c[1],e))
+repl_env[Symbol('def!')] = lambda c,e: e.__setitem__(c[0],EVAL(c[1],e))
+repl_env[Symbol('let*')] = LET
+repl_env[Symbol('do')] = DO
+repl_env[Symbol('if')] = IF
+repl_env[Symbol('fn*')] = lambda c,e: Closure(c[0],c[1],e)
+repl_env[Symbol('list')] = lambda c,e: eval_list(c[1],e)
+repl_env[Symbol('list?')] = lambda c,e: type(EVAL(c[1],e)) is List
+repl_env[Symbol('empty?')] = EMPTYQ
+repl_env[Symbol('count')] = COUNT
+repl_env[Symbol('<')] = lambda c,e: EVAL(c[0],e)<EVAL(c[1],e)
+repl_env[Symbol('>')] = lambda c,e: EVAL(c[0],e)>EVAL(c[1],e)
+repl_env[Symbol('<=')] = lambda c,e: EVAL(c[0],e)<=EVAL(c[1],e)
+repl_env[Symbol('>=')] = lambda c,e: EVAL(c[0],e)>=EVAL(c[1],e)
+repl_env[Symbol('=')] = lambda c,e: EVAL(c[0],e)==EVAL(c[1],e)
+repl_env[Symbol('prn')] = PRN
                        
 while True:
     try:
