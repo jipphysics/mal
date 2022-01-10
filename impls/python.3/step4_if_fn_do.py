@@ -177,6 +177,13 @@ def parse(s):
 def READ():
     return parse(input("user> "))[0]
   
+def eval_list(c,e):
+    if type(c) is List:
+        return List([EVAL(x,e) for x in c])
+    elif type(c) is list:
+        return [EVAL(x,e) for x in c]
+    return None
+  
 def DO(c,e):
     r = None
     if isinstance(c,list):
@@ -220,7 +227,13 @@ def COUNT(c,e):
 
 def PRN(c,e):
     print(str(EVAL(c[0],e)))
-    return None
+    return None      
+
+def NOT(c,e):
+    x=EVAL(c[0],e)
+    if x is False or x is None:
+        return True
+    return False
     
 class Env(dict):
     def __init__(self,outer=None):
@@ -261,17 +274,25 @@ class Closure:
         #print("@Closure.__call__ c="+str(c)+" e="+str(e))
         ee = Env(self.env)        
         if isinstance(c,list):
-            for x,y in zip(self.args,c):
-                #print("@Closure.__call__ x="+str(x)+" y="+str(y))
-                ee[x] = EVAL(y,e)
-        #print("@Closure.__call__ ee="+str(ee))
+            #for x,y in zip(self.args,c):
+            #    #print("@Closure.__call__ x="+str(x)+" y="+str(y))
+            #    ee[x] = EVAL(y,e)
+            a = self.args
+            while a: #and c:
+                x = a[0]
+                if x == "&":
+                    x = a[1]
+                    y = c[0:]
+                    ee[x] = eval_list(y,e)
+                    break
+                else:
+                    y = c[0]
+                    ee[x] = EVAL(y,e)
+                a = a[1:]
+                c = c[1:]
+        #print("@Closure.__call__ c="+str(c)+" e="+str(e))
         return EVAL(self.body,ee)
-                            
-def eval_list(c,e):
-    if isinstance(c,list):
-        return List([EVAL(x,e) for x in c])
-    return None
-      
+                                  
 def EVAL(c,env):
     if type(c) is List and len(c)>0:
         f = EVAL(c[0],env)
@@ -303,7 +324,7 @@ repl_env[Symbol('do')] = DO
 repl_env[Symbol('if')] = IF
 repl_env[Symbol('fn*')] = lambda c,e: Closure(c[0],c[1],e)
 repl_env[Symbol('list')] = lambda c,e: eval_list(c,e)
-repl_env[Symbol('list?')] = lambda c,e: type(EVAL(c[0],e)) is List
+repl_env[Symbol('list?')] = lambda c,e: isinstance(EVAL(c[0],e),list)
 repl_env[Symbol('empty?')] = EMPTYQ
 repl_env[Symbol('count')] = COUNT
 repl_env[Symbol('<')] = lambda c,e: EVAL(c[0],e)<EVAL(c[1],e)
@@ -312,6 +333,7 @@ repl_env[Symbol('<=')] = lambda c,e: EVAL(c[0],e)<=EVAL(c[1],e)
 repl_env[Symbol('>=')] = lambda c,e: EVAL(c[0],e)>=EVAL(c[1],e)
 repl_env[Symbol('=')] = lambda c,e: EVAL(c[0],e)==EVAL(c[1],e)
 repl_env[Symbol('prn')] = PRN
+repl_env[Symbol('not')] = NOT
                        
 while True:
     try:
