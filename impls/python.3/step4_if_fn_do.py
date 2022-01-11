@@ -239,7 +239,7 @@ def PR_STR(c,e):
     sep=""
     s=""
     for i in c:
-        s+=sep+to_str(EVAL(i,e)).replace('"','\\"') #.replace('\\','\\\\')
+        s+=sep+to_str(EVAL(i,e)).replace('\\','\\\\').replace('"','\\"')
         sep=" "
     return '"'+s+'"'
     
