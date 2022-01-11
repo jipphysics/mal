@@ -10,7 +10,7 @@ class List(list):
     def __init__(self,l=[]):
         list.__init__(self,l)
     def __str__(self):
-        return '('+' '.join([str(x) for x in list(self)])+')'
+        return '('+' '.join([str(x) for x in list(self)])+')'       
   
 class Vector(list):
     def __init__(self,l=[]):
@@ -235,6 +235,14 @@ def NOT(c,e):
         return True
     return False
     
+def PR_STR(c,e):
+    sep=""
+    s=""
+    for i in c:
+        s+=sep+to_str(EVAL(i,e)).replace('"','\\"') #.replace('\\','\\\\')
+        sep=" "
+    return '"'+s+'"'
+    
 class Env(dict):
     def __init__(self,outer=None):
         self.outer=outer      
@@ -323,7 +331,7 @@ repl_env[Symbol('let*')] = LET
 repl_env[Symbol('do')] = DO
 repl_env[Symbol('if')] = IF
 repl_env[Symbol('fn*')] = lambda c,e: Closure(c[0],c[1],e)
-repl_env[Symbol('list')] = lambda c,e: eval_list(c,e)
+repl_env[Symbol('list')] = lambda c,e: eval_list(List(c),e)
 repl_env[Symbol('list?')] = lambda c,e: isinstance(EVAL(c[0],e),list)
 repl_env[Symbol('empty?')] = EMPTYQ
 repl_env[Symbol('count')] = COUNT
@@ -334,6 +342,7 @@ repl_env[Symbol('>=')] = lambda c,e: EVAL(c[0],e)>=EVAL(c[1],e)
 repl_env[Symbol('=')] = lambda c,e: EVAL(c[0],e)==EVAL(c[1],e)
 repl_env[Symbol('prn')] = PRN
 repl_env[Symbol('not')] = NOT
+repl_env[Symbol('pr-str')] = PR_STR
                        
 while True:
     try:
