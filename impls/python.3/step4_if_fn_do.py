@@ -226,7 +226,11 @@ def COUNT(c,e):
     return 0
 
 def PRN(c,e):
-    print(str(EVAL(c[0],e)))
+    print(' '.join([str(EVAL(i,e)) for i in c]))
+    return None      
+
+def PRINTLN(c,e):
+    print(' '.join([str(EVAL(i,e)) for i in c]))
     return None      
 
 def NOT(c,e):
@@ -242,6 +246,17 @@ def PR_STR(c,e):
         s+=sep+to_str(EVAL(i,e)).replace('\\','\\\\').replace('"','\\"')
         sep=" "
     return '"'+s+'"'
+
+def STR(c,e):
+    s=""
+    for i in c:
+        if type(i) is str:
+            s+=i[1:-1]
+        else:
+            s+=to_str(EVAL(i,e))
+    if s:
+      return '"'+s+'"'
+    return "\"\""
     
 class Env(dict):
     def __init__(self,outer=None):
@@ -341,8 +356,10 @@ repl_env[Symbol('<=')] = lambda c,e: EVAL(c[0],e)<=EVAL(c[1],e)
 repl_env[Symbol('>=')] = lambda c,e: EVAL(c[0],e)>=EVAL(c[1],e)
 repl_env[Symbol('=')] = lambda c,e: EVAL(c[0],e)==EVAL(c[1],e)
 repl_env[Symbol('prn')] = PRN
+repl_env[Symbol('println')] = PRINTLN
 repl_env[Symbol('not')] = NOT
 repl_env[Symbol('pr-str')] = PR_STR
+repl_env[Symbol('str')] = STR
                        
 while True:
     try:
