@@ -17,6 +17,12 @@ class Vector(list):
         list.__init__(self,l)
     def __str__(self):
         return '['+' '.join([str(x) for x in list(self)])+']'
+
+class Key(str):
+    def __new__(cls,name):
+        if '"' in name or not name[0] == ':':
+            raise Exception("@Key.__new__ name << "+str(name)+" >> is invalid \"")
+        return str.__new__(cls,name)  
         
 class Dict(dict):
     def __init__(self,d={}):
@@ -24,13 +30,13 @@ class Dict(dict):
     def __str__(self):
         return 
     def __getitem__(self,k):
-        if type(k) is Symbol:
+        if type(k) is Key:
             return dict(self).get(k,None)
         return None
     def __setitem__(self,k,v):
-        if type(k) is Symbol:
+        if type(k) is Key:
             dict(self).__setitem__(k,v)
-        raise Exception("@Dict.__setitem__ key << "+str(k)+" >> is not Symbol")
+        raise Exception("@Dict.__setitem__ key << "+str(k)+" >> is not Key")
     def __str__(self):
         l=[]
         for k,v in dict(self).items():
@@ -164,7 +170,10 @@ def recursive_parse(s):
             try:
                 return int(s.s[j:s.i])                
             except:
-                return Symbol(s.s[j:s.i])
+                if s.s[j] == ':':
+                    return Key(s.s[j:s.i])                
+                else:
+                    return Symbol(s.s[j:s.i])
     return None
 
 def parse(s):
@@ -225,14 +234,6 @@ def COUNT(c,e):
         return len(x)
     return 0
 
-def PRN(c,e):
-    print(' '.join([str(EVAL(i,e)) for i in c]))
-    return None      
-
-def PRINTLN(c,e):
-    print(' '.join([str(EVAL(i,e)) for i in c]))
-    return None      
-
 def NOT(c,e):
     x=EVAL(c[0],e)
     if x is False or x is None:
@@ -240,12 +241,7 @@ def NOT(c,e):
     return False
     
 def PR_STR(c,e):
-    sep=""
-    s=""
-    for i in c:
-        s+=sep+to_str(EVAL(i,e)).replace('\\','\\\\').replace('"','\\"')
-        sep=" "
-    return '"'+s+'"'
+    return '"'+' '.join([to_str(EVAL(i,e)).replace('\\','\\\\').replace('"','\\"') for i in c])+'"'
 
 def STR(c,e):
     s=""
@@ -257,6 +253,14 @@ def STR(c,e):
     if s:
       return '"'+s+'"'
     return "\"\""
+    
+def PRN(c,e):
+    print(' '.join([str(EVAL(i,e)) for i in c]))
+    return None      
+
+def PRINTLN(c,e):
+    print(' '.join([str(EVAL(i,e))[1:-1].replace("\\\\","\\") for i in c]))
+    return None      
     
 class Env(dict):
     def __init__(self,outer=None):
