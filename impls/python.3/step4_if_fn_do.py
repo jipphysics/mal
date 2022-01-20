@@ -1,29 +1,21 @@
 import sys, traceback
-
+  
 class Symbol(str):
     def __new__(cls,name):
         if '"' in name:
             raise Exception("@Symbol.__new__ name << "+str(name)+" >> contains \"")
-        return str.__new__(cls,name)  
-               
-class List(list):
-    def __init__(self,l=[]):
-        list.__init__(self,l)
-    def __str__(self):
-        return '('+' '.join([str(x) for x in list(self)])+')'       
-  
-class Vector(list):
-    def __init__(self,l=[]):
-        list.__init__(self,l)
-    def __str__(self):
-        return '['+' '.join([str(x) for x in list(self)])+']'
-
+        return str.__new__(cls,name)
+              
 class Key(str):
     def __new__(cls,name):
         if '"' in name or not name[0] == ':':
             raise Exception("@Key.__new__ name << "+str(name)+" >> is invalid \"")
         return str.__new__(cls,name)  
-        
+
+class Vector(list):
+    def __init__(self,l=[]):
+        list.__init__(self,l)
+       
 class Dict(dict):
     def __init__(self,d={}):
         dict.__init__(self,d)
@@ -37,12 +29,64 @@ class Dict(dict):
         if type(k) is Key:
             dict(self).__setitem__(k,v)
         raise Exception("@Dict.__setitem__ key << "+str(k)+" >> is not Key")
-    def __str__(self):
+
+class Closure:
+    def __init__(self,args,body,env):
+        self.args = args
+        self.body = body
+        self.env = env                 
+    def __call__(self,c,e):
+        ee = Env(self.env) 
+        if isinstance(c,list):
+            a = self.args
+            while a:
+                if a[0] == "&":
+                    ee[a[1]] = eval_list(c[0:],e)
+                    break
+                else:
+                    ee[a[0]] = EVAL(c[0],e)
+                a = a[1:]
+                c = c[1:]
+        return EVAL(self.body,ee)
+
+def tostr(c,r=False,q='"'): # r = readably, q = enclose
+    if c is None:
+        return "nil"
+    elif c is True:
+        return 'true'
+    elif c is False:
+        return 'false'
+    elif type(c) is int:
+        return str(c)
+    elif type(c) is str:
+        if r:
+            return (q+c+q).replace('\\','\\\\').replace('"','\\"')
+        return q+c+q
+    elif type(c) is list:
+        return '('+' '.join([tostr(x,r=r,q=q) for x in c])+')'
+    elif type(c) is Vector:
+        return '['+' '.join([tostr(x,r=r,q=q) for x in c])+']'
+    elif type(c) is Dict:    
         l=[]
         for k,v in dict(self).items():
             l.append(k)
             l.append(v)                    
-        return '{'+' '.join([str(x) for x in l])+'}'
+        return '{'+' '.join([tostr(x,r=r,q=q) for x in l])+'}'
+    elif type(c) is Closure:
+        return c
+    elif type(c) is Env:
+        sep=""
+        s='Env{'
+        for k,v in dict.items(self):
+            if callable(v):
+                s+=sep+tostr(k,r=r,q=q)+':...'
+            else:
+                s+=sep+tostr(k,r=r,q=q)+':'+tostr(v,r=r,q=q)
+            sep=' '
+        s+=';'+tostr(self.outer,r=r,q=q)+'}'
+        return s
+    else:
+        return c
         
 def space(s):
     return s == ' ' or s == '\n' or s == '\r' or s == '\t' or s == '\f' or s == '\v' or s == ','
@@ -72,16 +116,6 @@ class StringPtr:
     def remainder(self):
         return self.s[self.i:]     
         
-def to_str(c):
-    if c is None:
-        return "nil"
-    elif c is True:
-        return 'true'
-    elif c is False:
-        return 'false'
-    else:
-        return str(c)
-
 def recursive_parse(s):
     s.skip_spaces()
     if s.end():
@@ -89,7 +123,7 @@ def recursive_parse(s):
     if s[0]=='(':
         s.inc()
         s.skip_spaces()
-        c=List()
+        c=[]
         while s[0]!=')' and s.nend():
             c.append(recursive_parse(s))
             s.skip_spaces()            
@@ -139,22 +173,22 @@ def recursive_parse(s):
             if s[0]!='\"':
                 raise Exception("Exception: expected '\"', got EOF")
             s.inc()
-            return s.s[j:s.i] #s.s[j+1:s.i-1]
+            return s.s[j+1:s.i-1]
         elif s[0]=='\'':
             s.inc()
-            return List(["quote",recursive_parse(s)])
+            return ["quote",recursive_parse(s)]
         elif s[0]=='`':
             s.inc()
-            return List(["quasiquote",recursive_parse(s)])
+            return ["quasiquote",recursive_parse(s)]
         elif s[0]=='~':
             s.inc()
             if s[0]=='@':
                 s.inc()            
-                return List(["splice-unquote",recursive_parse(s)])            
-            return List(["unquote",recursive_parse(s)])
+                return ["splice-unquote",recursive_parse(s)]
+            return ["unquote",recursive_parse(s)]
         elif s[0]=='@':
             s.inc()
-            return List(["deref",recursive_parse(s)])                    
+            return ["deref",recursive_parse(s)]
         elif s[0]=='^':
             s.inc()
             s.skip_spaces()
@@ -163,7 +197,7 @@ def recursive_parse(s):
             s.skip_spaces()
             o = recursive_parse(s)
             s.inc()
-            return List(["with-meta",o,m])
+            return ["with-meta",o,m]
         else:
             while s.nend() and (not space(s[0])) and s[0]!='(' and s[0]!=')' and s[0]!='[' and s[0]!=']' and s[0]!='{' and s[0]!='}':
                 s.inc()
@@ -178,90 +212,20 @@ def recursive_parse(s):
 
 def parse(s):
     s=StringPtr(s)
-    k=List()
+    k=[]
     while s.nend():
         k.append(recursive_parse(s))
     return k
    
-def READ():
-    return parse(input("user> "))[0]
-  
 def eval_list(c,e):
-    if type(c) is List:
-        return List([EVAL(x,e) for x in c])
-    elif type(c) is list:
+    if type(c) is list:
         return [EVAL(x,e) for x in c]
+    elif type(c) is Vector:
+        return Vector([EVAL(x,e) for x in c])
+    elif type(c) is Dict:
+        return Dict({k : EVAL(x,e) for x in c.items()})
     return None
-  
-def DO(c,e):
-    r = None
-    if isinstance(c,list):
-        for i in c:
-            r = EVAL(i,e)
-    return r
-
-def IF(c,e):
-    x=EVAL(c[0],e)
-    if x is False or x is None:
-        if len(c)>2:
-            return EVAL(c[2],e)
-        return None
-    elif len(c)>1:
-        return EVAL(c[1],e)
-    else:
-        return None #raise Exception("@IF invalid expression") 
-
-def LET(c,e):
-  ee=Env(e)
-  l=c[0]
-  if isinstance(c,list):
-      while l:
-          x = l[0]
-          l = l[1:]
-          ee[x] = EVAL(l[0],ee)
-          l = l[1:]
-  return EVAL(c[1],ee)
-
-def EMPTYQ(c,e):
-    x = EVAL(c[0],e)
-    if isinstance(x,list):
-        return len(x) == 0
-    return False
-       
-def COUNT(c,e):
-    x=EVAL(c[0],e)
-    if isinstance(x,list):
-        return len(x)
-    return 0
-
-def NOT(c,e):
-    x=EVAL(c[0],e)
-    if x is False or x is None:
-        return True
-    return False
-    
-def PR_STR(c,e):
-    return '"'+' '.join([to_str(EVAL(i,e)).replace('\\','\\\\').replace('"','\\"') for i in c])+'"'
-
-def STR(c,e):
-    s=""
-    for i in c:
-        if type(i) is str:
-            s+=i[1:-1]
-        else:
-            s+=to_str(EVAL(i,e))
-    if s:
-      return '"'+s+'"'
-    return "\"\""
-    
-def PRN(c,e):
-    print(' '.join([str(EVAL(i,e)) for i in c]))
-    return None      
-
-def PRINTLN(c,e):
-    print(' '.join([str(EVAL(i,e))[1:-1].replace("\\\\","\\") for i in c]))
-    return None      
-    
+     
 class Env(dict):
     def __init__(self,outer=None):
         self.outer=outer      
@@ -277,51 +241,9 @@ class Env(dict):
             dict.__setitem__(self,k,v)
         else:
             raise Exception("@Env.__setitem__ key << "+str(k)+" >> not valid")
-    def __str__(self):
-        sep=""
-        s='Env{'
-        for k,v in dict.items(self):
-            if callable(v):
-                s+=sep+str(k)+':...'
-            else:
-                s+=sep+str(k)+':'+str(v)
-            sep=' '
-        s+=';'+str(self.outer)+'}'
-        return s
-    def __repr__(self):
-        return self.__str__()
-
-class Closure:
-    def __init__(self,args,body,env):
-        #print("@Closure.__init__ args="+str(args)+" body="+str(body)+" env="+str(env))
-        self.args = args
-        self.body = body
-        self.env = env                 
-    def __call__(self,c,e):
-        #print("@Closure.__call__ c="+str(c)+" e="+str(e))
-        ee = Env(self.env)        
-        if isinstance(c,list):
-            #for x,y in zip(self.args,c):
-            #    #print("@Closure.__call__ x="+str(x)+" y="+str(y))
-            #    ee[x] = EVAL(y,e)
-            a = self.args
-            while a: #and c:
-                x = a[0]
-                if x == "&":
-                    x = a[1]
-                    y = c[0:]
-                    ee[x] = eval_list(y,e)
-                    break
-                else:
-                    y = c[0]
-                    ee[x] = EVAL(y,e)
-                a = a[1:]
-                c = c[1:]
-        #print("@Closure.__call__ c="+str(c)+" e="+str(e))
-        return EVAL(self.body,ee)
-                                  
+                                              
 def EVAL(c,env):
-    if type(c) is List and len(c)>0:
+    if type(c) is list and len(c)>0:
         f = EVAL(c[0],env)
         if callable(f):
             return f(c[1:],env)
@@ -346,28 +268,94 @@ repl_env[Symbol('-')] = lambda c,e: EVAL(c[0],e)-EVAL(c[1],e)
 repl_env[Symbol('*')] = lambda c,e: EVAL(c[0],e)*EVAL(c[1],e)
 repl_env[Symbol('/')] = lambda c,e: int(EVAL(c[0],e)/EVAL(c[1],e))
 repl_env[Symbol('def!')] = lambda c,e: e.__setitem__(c[0],EVAL(c[1],e))
-repl_env[Symbol('let*')] = LET
-repl_env[Symbol('do')] = DO
-repl_env[Symbol('if')] = IF
 repl_env[Symbol('fn*')] = lambda c,e: Closure(c[0],c[1],e)
-repl_env[Symbol('list')] = lambda c,e: eval_list(List(c),e)
-repl_env[Symbol('list?')] = lambda c,e: isinstance(EVAL(c[0],e),list)
-repl_env[Symbol('empty?')] = EMPTYQ
-repl_env[Symbol('count')] = COUNT
+repl_env[Symbol('list')] = lambda c,e: eval_list(c,e)
+repl_env[Symbol('list?')] = lambda c,e: type(EVAL(c[0],e)) is list
 repl_env[Symbol('<')] = lambda c,e: EVAL(c[0],e)<EVAL(c[1],e)
 repl_env[Symbol('>')] = lambda c,e: EVAL(c[0],e)>EVAL(c[1],e)
 repl_env[Symbol('<=')] = lambda c,e: EVAL(c[0],e)<=EVAL(c[1],e)
 repl_env[Symbol('>=')] = lambda c,e: EVAL(c[0],e)>=EVAL(c[1],e)
 repl_env[Symbol('=')] = lambda c,e: EVAL(c[0],e)==EVAL(c[1],e)
-repl_env[Symbol('prn')] = PRN
-repl_env[Symbol('println')] = PRINTLN
+
+def LET(c,e):
+  ee=Env(e)
+  l=c[0]
+  if isinstance(c,list):
+      while l:
+          x = l[0]
+          l = l[1:]
+          ee[x] = EVAL(l[0],ee)
+          l = l[1:]
+  return EVAL(c[1],ee)
+repl_env[Symbol('let*')] = LET
+
+def DO(c,e):
+    r = None
+    if isinstance(c,list):
+        for i in c:
+            r = EVAL(i,e)
+    return r
+repl_env[Symbol('do')] = DO
+
+def IF(c,e):
+    x=EVAL(c[0],e)
+    if x is False or x is None:
+        if len(c)>2:
+            return EVAL(c[2],e)
+        return None
+    elif len(c)>1:
+        return EVAL(c[1],e)
+    else:
+        return None #raise Exception("@IF invalid expression") 
+repl_env[Symbol('if')] = IF
+
+def EMPTYQ(c,e):
+    x = EVAL(c[0],e)
+    if isinstance(x,list):
+        return len(x) == 0
+    return False
+repl_env[Symbol('empty?')] = EMPTYQ
+
+def COUNT(c,e):
+    x=EVAL(c[0],e)
+    print("@COUNT c="+str(c)+" x="+str(x)+" e="+str(e))    
+    if isinstance(x,list):
+        return len(x)
+    return 0
+repl_env[Symbol('count')] = COUNT
+
+def NOT(c,e):
+    x=EVAL(c[0],e)
+    if x is False or x is None:
+        return True
+    return False
 repl_env[Symbol('not')] = NOT
+
+def PR_STR(c,e):
+    return ' '.join([tostr(EVAL(i,e),r=True,q='"') for i in c])
 repl_env[Symbol('pr-str')] = PR_STR
+
+def STR(c,e):
+    #return '"'+''.join([tostr(EVAL(i,e),r=False,q='') for i in c])+'"'
+    return ''.join([tostr(EVAL(i,e),r=False,q='') for i in c])
 repl_env[Symbol('str')] = STR
+
+def PRN(c,e):
+    print(' '.join([tostr(EVAL(i,e),r=False,q='"') for i in c]))
+    return None
+repl_env[Symbol('prn')] = PRN
+
+def PRINTLN(c,e):
+    print(' '.join([tostr(EVAL(i,e),r=False,q='') for i in c]))
+    return None    
+repl_env[Symbol('println')] = PRINTLN
+   
+def READ():
+    return parse(input("user> "))[0]   
                        
 while True:
     try:
-        print(to_str(EVAL(READ(),repl_env)))
+        print(tostr(EVAL(READ(),repl_env)))
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
