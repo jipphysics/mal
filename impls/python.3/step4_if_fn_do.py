@@ -48,8 +48,8 @@ class Closure:
                 a = a[1:]
                 c = c[1:]
         return EVAL(self.body,ee)
-
-def tostr(c,r=False,q='"'): # r = readably, q = enclose
+        
+def tostr(c,r=False,q='"',t=False,i=False): # r = readably, q = enclose, t = trim quotes, i = inverse readably
     if c is None:
         return "nil"
     elif c is True:
@@ -59,19 +59,23 @@ def tostr(c,r=False,q='"'): # r = readably, q = enclose
     elif type(c) is int:
         return str(c)
     elif type(c) is str:
+        if t:
+            c = c[1:-1]
         if r:
-            return (q+c+q).replace('\\','\\\\').replace('"','\\"')
+            c = c.replace('\\','\\\\').replace('"','\\"').replace('\n','\\\n')
+        if i:
+            c = c.replace('\\\n','\n').replace('\\"','"').replace('\\\\','\\')
         return q+c+q
     elif type(c) is list:
-        return '('+' '.join([tostr(x,r=r,q=q) for x in c])+')'
+        return '('+' '.join([tostr(x,r=r,q=q,t=t,i=i) for x in c])+')'
     elif type(c) is Vector:
-        return '['+' '.join([tostr(x,r=r,q=q) for x in c])+']'
+        return '['+' '.join([tostr(x,r=r,q=q,t=t,i=i) for x in c])+']'
     elif type(c) is Dict:    
         l=[]
         for k,v in dict(self).items():
             l.append(k)
             l.append(v)                    
-        return '{'+' '.join([tostr(x,r=r,q=q) for x in l])+'}'
+        return '{'+' '.join([tostr(x,r=r,q=q,t=t,i=i) for x in l])+'}'
     elif type(c) is Closure:
         return c
     elif type(c) is Env:
@@ -79,11 +83,11 @@ def tostr(c,r=False,q='"'): # r = readably, q = enclose
         s='Env{'
         for k,v in dict.items(self):
             if callable(v):
-                s+=sep+tostr(k,r=r,q=q)+':...'
+                s+=sep+tostr(k,r=r,q=q,t=t,i=i)+':...'
             else:
-                s+=sep+tostr(k,r=r,q=q)+':'+tostr(v,r=r,q=q)
+                s+=sep+tostr(k,r=r,q=q,t=t,i=i)+':'+tostr(v,r=r,q=q,t=t,i=i)
             sep=' '
-        s+=';'+tostr(self.outer,r=r,q=q)+'}'
+        s+=';'+tostr(self.outer,r=r,q=q,t=t,i=i)+'}'
         return s
     else:
         return c
@@ -173,7 +177,8 @@ def recursive_parse(s):
             if s[0]!='\"':
                 raise Exception("Exception: expected '\"', got EOF")
             s.inc()
-            return s.s[j+1:s.i-1]
+            return s.s[j:s.i]
+            #return s.s[j+1:s.i-1]
         elif s[0]=='\'':
             s.inc()
             return ["quote",recursive_parse(s)]
@@ -318,7 +323,7 @@ repl_env[Symbol('empty?')] = EMPTYQ
 
 def COUNT(c,e):
     x=EVAL(c[0],e)
-    print("@COUNT c="+str(c)+" x="+str(x)+" e="+str(e))    
+    #print("@COUNT c="+str(c)+" x="+str(x)+" e="+str(e))    
     if isinstance(x,list):
         return len(x)
     return 0
@@ -332,21 +337,22 @@ def NOT(c,e):
 repl_env[Symbol('not')] = NOT
 
 def PR_STR(c,e):
-    return ' '.join([tostr(EVAL(i,e),r=True,q='"') for i in c])
+    return '"'+' '.join([tostr(EVAL(i,e),r=True,q='',t=False,i=False) for i in c])+'"'
 repl_env[Symbol('pr-str')] = PR_STR
 
-def STR(c,e):
-    #return '"'+''.join([tostr(EVAL(i,e),r=False,q='') for i in c])+'"'
-    return ''.join([tostr(EVAL(i,e),r=False,q='') for i in c])
+def STR(c,e):   
+    s = ''.join([tostr(EVAL(i,e),r=False,q='',t=True,i=False) for i in c])
+    return '"'+s+'"'
 repl_env[Symbol('str')] = STR
 
 def PRN(c,e):
-    print(' '.join([tostr(EVAL(i,e),r=False,q='"') for i in c]))
+    print(' '.join([tostr(EVAL(i,e),r=False,q='',t=False,i=False) for i in c]))
     return None
 repl_env[Symbol('prn')] = PRN
 
 def PRINTLN(c,e):
-    print(' '.join([tostr(EVAL(i,e),r=False,q='') for i in c]))
+    for i in tostr(' '.join([tostr(EVAL(i,e),r=False,q='',t=True,i=True) for i in c]),r=False,q='',t=False,i=True).split('\\n'):
+        print(i)
     return None    
 repl_env[Symbol('println')] = PRINTLN
    
@@ -355,7 +361,7 @@ def READ():
                        
 while True:
     try:
-        print(tostr(EVAL(READ(),repl_env)))
+        print(tostr(EVAL(READ(),repl_env),r=False,q='',t=False,i=False))
     except Exception as e:
         print("".join(traceback.format_exception(*sys.exc_info())))         
     except EOFError:
